@@ -6,5 +6,8 @@ const auth = require("../../../config/auth");
 router.post("/register", userController.registerNewUser);
 router.post("/login", userController.loginUser);
 router.get("/me", auth.authUser, userController.getUserDetails);
+router.post("/updateinfo", auth.authUser, userController.updateUserDetails);
+
+router.get("/adminAuth", auth.authUser, auth.adminAuth, (req, res) => { res.status(200).json({ message : "Admin authenticated" }) });
 
 module.exports = router;

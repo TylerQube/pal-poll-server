@@ -30,6 +30,9 @@ app.get('/', (req, res) => {
 const userRoutes = require("./api/user/route/user");
 app.use("/user", userRoutes);
 
+const questionRoutes = require("./api/question/route/questions");
+app.use("/questions", questionRoutes);
+
 const port = process.env.PORT || 3030;
 app.listen(port, () => {
   console.log(`App listening at ${port}`);

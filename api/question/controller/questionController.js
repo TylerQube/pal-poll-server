@@ -1,6 +1,6 @@
 const Question = require("../model/Question");
 const AnswerOptions = require("../model/AnswerOptions");
-const Config = require("../model/Config");
+const Config = require("../../palpoll-config/model/Config");
 
 exports.getDailyQuestion = async (req, res) => {
     try {
@@ -44,7 +44,7 @@ exports.getQuestions = async (req, res, startIndex, num) => {
     try {
         const questions = await Question.find({
             orderNum: { $gt: startIndex-1, $lt: startIndex+num }
-        });
+        }).sort({orderNum: 'ascending'});
 
         res.status(200).json({
             questions
@@ -102,28 +102,30 @@ exports.addQuestion = async (req, res) => {
 
 exports.editQuestion = async (req, res) => {
     try {
-        const question = await Question.findOne({ _id : req.data.questionId });
+        console.log(req.body);
+        console.log(req.body.questionId)
+        const question = await Question.findOne({ _id : req.body.questionId });
 
         if (!question) {
             return res.status(401).json({ error: "Question not found" });
         }
 
-        if(req.data.questionBody) {
-            question.questionBody = req.data.questionBody;
+        if(req.body.questionBody) {
+            question.questionBody = req.body.questionBody;
         }
-        if(req.data.orderNum) {
+        if(req.body.orderNum) {
             const numQuestions = await Question.count({}, (err, count) => {
                 return count;
             })
-            if(req.data.orderNum < 0 || req.data.orderNum >= numQuestions) return res.status(400).json({ err : "Invalid question order number" })
-            question.orderNum = req.data.orderNum;
+            if(req.body.orderNum < 0 || req.body.orderNum >= numQuestions) return res.status(400).json({ err : "Invalid question order number" })
+            question.orderNum = req.body.orderNum;
         }
-        if(req.data.answerOptions) {
-            const newOptions = reqToAnswerOptions(req.data.answerOptions);
+        if(req.body.answerOptions) {
+            const newOptions = reqToAnswerOptions(req.body.answerOptions);
             question.answerOptions = newOptions;
         }
-        if(req.data.answerNumber) {
-            question.answerNumber = req.data.answerNumber;
+        if(req.body.answerNumber) {
+            question.answerNumber = req.body.answerNumber;
         }
 
         let data = question.save();
@@ -135,6 +137,80 @@ exports.editQuestion = async (req, res) => {
         });
     }
 };
+
+exports.deleteQuestion = async (req, res) => {
+    try {
+        const questionId = req.body.questionId;
+        // delete question
+        const toRemove = await Question.findOne({ _id: questionId });
+        const data = await Question.deleteOne({ _id: questionId });
+
+        // adjust order number of all subsequent questions
+        const questions = await Question.find({
+            orderNum: { $gt: toRemove.orderNum }
+        });
+
+        for(let i = 0; i < questions.length; i++) {
+            const q = questions[i];
+            q.orderNum = q.orderNum - 1;
+            await q.save();
+            console.log(`Increasing q at index ${q.orderNum}`);
+        }
+
+        return res.status(200).json({ data });
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({
+            err : err
+        });
+    }
+}
+
+exports.changeOrder = async (req, res) => {
+    try {
+        console.log(req.body)
+        const questionId = req.body.questionId;
+        const newIndex = req.body.newOrderNum;
+
+        const question = await Question.findOne({ _id: questionId });
+
+        if(question.orderNum > newIndex) {
+            // if moved backward
+
+            // move questions( >= new index && < old index ) + 1
+            const toMoveQs = await Question.find({ 
+                orderNum: {$gt: (newIndex - 1), $lt: question.orderNum}
+            });
+
+            for(let i = 0; i < toMoveQs.length; i++) {
+                let q = toMoveQs[i];
+                q.orderNum += 1;
+                await q.save();
+            }
+        } else {
+            // if moved forwards
+
+            // move questions ( <= new index && > old index ) - 1
+            const toMoveQs = await Question.find({ 
+                orderNum: {$gt: question.orderNum, $lt: (newIndex + 1)}
+            });
+
+            for(let i = 0; i < toMoveQs.length; i++) {
+                let q = toMoveQs[i];
+                q.orderNum -= 1;
+                await q.save();
+            }
+        }
+        question.orderNum = newIndex;
+        const data = await question.save();
+        return res.status(200).json({ data });
+    } catch (err) {
+        console.log(err);
+        return res.status(500).json({
+            err : err
+        });
+    }
+}
 
 const reqToAnswerOptions = (rawOptions) => {
     // construct array of AnswerOption documents

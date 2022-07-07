@@ -2,15 +2,9 @@ const User = require("../model/User");
 
 exports.registerNewUser = async (req, res) => {
     try {
-      // const isAdmin = req.userData.role === "admin";
-      // if(!isAdmin) {
-      //   return res.status(401).json({
-      //     message: "unauthorized to register new user"
-      //   });
-      // }
       const existingUser = await User.findOne({ username: req.body.username });
 
-     console.log(existingUser);
+      console.log(existingUser);
       if (existingUser != null) {
         return res.status(409).json({
           message: "name already in use"
@@ -51,4 +45,32 @@ exports.loginUser = async (req, res) => {
 
 exports.getUserDetails = async (req, res) => {
   await res.json(req.userData);
+};
+
+// can update email and display name
+exports.updateUserDetails = async (req, res) => {
+  try {
+    const userId = req.userData._id;
+    console.log("User updating info: " + req.userData);
+    const user = await User.findOne({ _id: userId });
+
+    if (!user) {
+      return res.status(401).json({ error: "Invalid authentication! Check login status" });
+    }
+     
+    if(req.body.email) {
+      user.email = req.body.email;
+    }
+    if(req.body.displayName) {
+      user.displayName = req.body.displayName;
+    }
+
+    user.save();
+    const token = await user.generateAuthToken();
+    return res.status(200).json({ token });
+
+  } catch (err) {
+    console.log("update failed")
+    res.status(400).json({ err: err });
+  }
 };

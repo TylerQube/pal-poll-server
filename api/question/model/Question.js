@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-const Config = require('./Config');
 const AnswerOptions = require('./AnswerOptions');
 
 const questionSchema = mongoose.Schema({
