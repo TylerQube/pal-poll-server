@@ -1,6 +1,7 @@
 const Question = require("../model/Question");
 const AnswerOptions = require("../model/AnswerOptions");
 const Config = require("../../palpoll-config/model/Config");
+const PollQuestion = require("../model/PollQuestion");
 
 exports.getDailyQuestion = async (req, res) => {
     try {
@@ -60,7 +61,7 @@ exports.getQuestions = async (req, res, startIndex, num) => {
 exports.addQuestion = async (req, res) => {
     try {
         // check if question with body exists
-        const existingQuestion = await Question.findOne({ questionBody: req.body.questionBody });
+        const existingQuestion = await Question.findOne({ questionBody: req.body.questionBody }) ?? await PollQuestion.findOne({ questionBody: req.body.questionBody });
         if(existingQuestion != null) {
             return res.status(409).json({
                 message: "question body already exists"
@@ -70,7 +71,7 @@ exports.addQuestion = async (req, res) => {
         // count existing questions
         const numQuestions = await Question.count({});
         // check if ordernum already exists
-        const existingOrderNum = await Question.findOne({ orderNum: req.body.orderNum });
+        const existingOrderNum = await Question.findOne({ orderNum: req.body.orderNum }) ?? await PollQuestion.findOne({ orderNum: req.body.orderNum });
         if(existingOrderNum != null) {
             return res.status(500).json({
                 err: "Internal error with question ordering"
@@ -80,15 +81,27 @@ exports.addQuestion = async (req, res) => {
         console.log(req.body);
         // construct array of AnswerOption documents
         const options = reqToAnswerOptions(req.body.answerOptions);
+        let newQuestion;
 
-        const newQuestion = new Question({
-            questionBody: req.body.questionBody,
-            // order is 0 indexed
-            orderNum: numQuestions,
-            // use array of generated AnswerOption docs
-            answerOptions: options,
-            answerNumber: req.body.answerNumber
-        });
+        const qType = req.body.questionType;
+
+        if(qType == "Poll") {
+            newQuestion = new PollQuestion({
+                questionBody: req.body.questionBody,
+                // order is 0 indexed
+                orderNum: numQuestions,
+            });
+        }
+        else {
+            newQuestion = new Question({
+                questionBody: req.body.questionBody,
+                // order is 0 indexed
+                orderNum: numQuestions,
+                // use array of generated AnswerOption docs
+                answerOptions: options,
+                answerNumber: req.body.answerNumber
+            });
+        }
 
         let data = await newQuestion.save();
         return res.status(201).json({ data });
@@ -104,10 +117,36 @@ exports.editQuestion = async (req, res) => {
     try {
         console.log(req.body);
         console.log(req.body.questionId)
-        const question = await Question.findOne({ _id : req.body.questionId });
+        const question = await Question.findOne({ _id : req.body.questionId }) ?? await PollQuestion.findOne({ _id : req.body.questionId });
 
         if (!question) {
             return res.status(401).json({ error: "Question not found" });
+        }
+
+        // switch from Quiz to Poll
+        if(req.body.questionType == "Quiz" && question.answerOptions.length == 0) {
+            console.log("Chanign to a quiz!!!!!")
+            const newQuiz = new Question({
+                questionBody: req.body.questionBody,
+                // order is 0 indexed
+                orderNum: question.orderNum,
+                // use array of generated AnswerOption docs
+                answerOptions: req.body.answerOptions,
+                answerNumber: req.body.answerNumber
+            });
+            await PollQuestion.deleteOne({ _id: req.body.questionId });
+            const data = await newQuiz.save();
+            return res.status(200).json({ data });
+        }
+        else if(req.body.questionType == "Poll" && question.answerOptions.length > 0) {
+            const newPoll = newQuestion = new PollQuestion({
+                questionBody: req.body.questionBody,
+                // order is 0 indexed
+                orderNum: question.orderNum,
+            });
+            await Question.deleteOne({ _id: req.body.questionId });
+            const data = await newPoll.save();
+            return res.status(200).json({ data });
         }
 
         if(req.body.questionBody) {
@@ -120,11 +159,11 @@ exports.editQuestion = async (req, res) => {
             if(req.body.orderNum < 0 || req.body.orderNum >= numQuestions) return res.status(400).json({ err : "Invalid question order number" })
             question.orderNum = req.body.orderNum;
         }
-        if(req.body.answerOptions) {
+        if(req.body.questionType == "Quiz" && req.body.answerOptions) {
             const newOptions = reqToAnswerOptions(req.body.answerOptions);
             question.answerOptions = newOptions;
         }
-        if(req.body.answerNumber) {
+        if(req.body.questionType == "Quiz" && req.body.answerNumber) {
             question.answerNumber = req.body.answerNumber;
         }
 
@@ -142,13 +181,23 @@ exports.deleteQuestion = async (req, res) => {
     try {
         const questionId = req.body.questionId;
         // delete question
-        const toRemove = await Question.findOne({ _id: questionId });
+        let toRemove = await Question.findOne({ _id: questionId });
         const data = await Question.deleteOne({ _id: questionId });
+
+        // let question = await Question.findOne({ _id: questionId });
+        // if(toRemove == null || question.answerOptions.length == 0) question = await PollQuestion.findOne({ _id: questionId })
 
         // adjust order number of all subsequent questions
         const questions = await Question.find({
-            orderNum: { $gt: toRemove.orderNum }
+            orderNum: { $gt: toRemove.orderNum },
+            "answerOptions.0" : { $exists: true } 
         });
+
+        const toMovePolls = await PollQuestion.find({ orderNum: { $gt: toRemove.orderNum } });
+
+        questions.push(...toMovePolls);
+        console.log("QUestions: ")
+        console.log(questions)
 
         for(let i = 0; i < questions.length; i++) {
             const q = questions[i];
@@ -172,36 +221,53 @@ exports.changeOrder = async (req, res) => {
         const questionId = req.body.questionId;
         const newIndex = req.body.newOrderNum;
 
-        const question = await Question.findOne({ _id: questionId });
+        let question = await Question.findOne({ _id: questionId });
+        if(question == null || question.answerOptions.length == 0) question = await PollQuestion.findOne({ _id: questionId })
 
+        let toMoveQs;
+        let queryConditions = {
+            "answerOptions.0" : { $exists: true } 
+        }
         if(question.orderNum > newIndex) {
             // if moved backward
-
             // move questions( >= new index && < old index ) + 1
-            const toMoveQs = await Question.find({ 
-                orderNum: {$gt: (newIndex - 1), $lt: question.orderNum}
-            });
-
-            for(let i = 0; i < toMoveQs.length; i++) {
-                let q = toMoveQs[i];
-                q.orderNum += 1;
-                await q.save();
-            }
+            queryConditions.orderNum = {$gt: (newIndex - 1), $lt: question.orderNum}
         } else {
             // if moved forwards
-
             // move questions ( <= new index && > old index ) - 1
-            const toMoveQs = await Question.find({ 
-                orderNum: {$gt: question.orderNum, $lt: (newIndex + 1)}
-            });
-
-            for(let i = 0; i < toMoveQs.length; i++) {
-                let q = toMoveQs[i];
-                q.orderNum -= 1;
-                await q.save();
-            }
+            queryConditions.orderNum = {$gt: question.orderNum, $lt: (newIndex + 1)}
         }
+        toMoveQs = await Question.find(queryConditions);
+        const toMovePolls = await PollQuestion.find({ orderNum: queryConditions.orderNum });
+
+        toMoveQs.push(...toMovePolls);
+
+        for(let i = 0; i < toMoveQs.length; i++) {
+            let q = toMoveQs[i];
+            q.orderNum += question.orderNum > newIndex ? 1 : -1;
+            // console.log(q.orderNum + " answerOptions: " + q.answerOptions.length)
+            // if(q.answerOptions.length == 0) {
+            //     q = new PollQuestion({
+            //         questionBody: q.questionBody,
+            //         orderNum: q.orderNum
+            //     });
+            //     console.log("Removing " + q.orderNum)
+            //     await Question.deleteOne({  _id: q._id });
+            // }
+            await q.save();
+        }
+
         question.orderNum = newIndex;
+        console.log("NOW SAVE THE MOVED ONE")
+
+        // if(question.answerOptions.length == 0) {
+        //     console.log("Reformatting as poll")
+        //     question = new PollQuestion({
+        //         questionBody: question.questionBody,
+        //         orderNum: newIndex
+        //     });
+        //     await Question.deleteOne({  _id: questionId });
+        // }
         const data = await question.save();
         return res.status(200).json({ data });
     } catch (err) {
