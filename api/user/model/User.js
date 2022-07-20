@@ -19,30 +19,26 @@ const userSchema = mongoose.Schema({
       type: String,
       required: [true, "Please Include your password"]
     },
+    avatarUrl: {
+      type: String,
+      required: [true, "Please include an avatar URL"]
+    },
     role: {
       type: String,
       default: "user",
       enum: ["user", "admin"]
     },
-    // tokens: [
-    //   {
-    //     token: {
-    //       type: String,
-    //       required: true
-    //     }
-    //   }
-    // ]
   }, { collection: 'users' });
 
   //this method will hash the password before saving the user model
 userSchema.pre("save", async function(next) {
-    const user = this; 
-    if (user.isModified("password")) {
-      user.password = await bcrypt.hash(user.password, 8);
-    }
-    next();
-  });
-  
+  const user = this; 
+  if (user.isModified("password")) {
+    user.password = await bcrypt.hash(user.password, 8);
+  }
+  next();
+});
+
 //this method generates an auth token for the user
 userSchema.methods.generateAuthToken = async function() {
   const user = this;
@@ -65,6 +61,15 @@ userSchema.statics.findByCredentials = async (username, password) => {
     throw new Error({ error: "Invalid login details" });
   }
   return user;
+};
+
+userSchema.statics.updateAvatar = async (username, newUrl) => {
+  const user = await User.findOne({ username: username });
+  if (!user) {
+    throw new Error({ error: "Invalid login details" });
+  }
+  user.avatarUrl = newUrl;
+  user.save();
 };
 
 const User = mongoose.model("User", userSchema);

@@ -1,5 +1,6 @@
 const User = require("../model/User");
 const cloudinary = require('cloudinary');
+const axios = require('axios');
 
 exports.registerNewUser = async (req, res) => {
     try {
@@ -12,12 +13,24 @@ exports.registerNewUser = async (req, res) => {
         });
       }
 
+      const avatarUrl = await axios.get(`https://ui-avatars.com/api/?size=144&name=${req.body.displayName[0].toUpperCase()}&background=random`)
+
+      const filename = `${req.body.username}_avatar`;
+
+      let cloudinaryUrl;
+      await cloudinary.v2.uploader.upload(avatarUrl,
+      { public_id: filename, gravity: "auto", height: 144, width: 144, crop: "fill" }, (err, res) => {
+        console.log(res); 
+        cloudinaryUrl = res.secure_url
+      });
+
       // save with blank email by default
       const user = new User({
         username: req.body.username,
         displayName: req.body.displayName,
         email: "",
-        password: req.body.password
+        password: req.body.password,
+        avatarUrl: cloudinaryUrl
       });
       let data = await user.save();
       const token = await user.generateAuthToken(); // here it is calling the method that we created in the model
@@ -83,13 +96,17 @@ exports.updateProfilePicture = async (req, res) => {
     console.log(filename)
 
     const img_uri = await getDataUri(req);
+    let secureUrl;
+    const avatar_size = 144;
+
     await cloudinary.v2.uploader.upload(img_uri.content,
-    { public_id: filename, gravity: "auto", height: 144, width: 144, crop: "fill" }, (err, res) => {
+    { public_id: filename, gravity: "auto", height: avatar_size, width: avatar_size, crop: "fill" }, (err, res) => {
       console.log(res); 
+      secureUrl = res.secure_url;
     });
+    await User.updateAvatar(req.userData.name, secureUrl);
 
     // resize and crop avatar
-    const avatar_size = 144;
     await cloudinary.image(img_uri.content, {})
     
     res.status(200).json({ msg: "Avatar updated."});
@@ -106,4 +123,20 @@ const path = require('path')
 
 const getDataUri = async req => {
   return parser.format(path.extname(req.file.originalname).toString(), req.file.buffer);
+};
+
+exports.getUserAvatar = async (req, res) => {
+  try {
+    console.log(req.query.username)
+    const user = await User.findOne({ username: req.query.username });
+    if(!user) throw new Error("User not found")
+    console.log(user);
+    const url = user.avatarUrl;
+    if(!url) throw new Error("No avatar found");
+    console.log(url);
+    res.status(200).send(url);
+  } catch (err) {
+    console.log(err)
+    res.status(400).json({ err: err }); 
+  }
 };
