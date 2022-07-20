@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const morgan = require('morgan');
 const mongoose = require('mongoose');
+const cloudinary = require('cloudinary');
 const config = require('./config/db');
 
 const app = express();
@@ -22,6 +23,12 @@ mongoose
   .catch(err => {
     console.log({ database_error: err });
   });
+
+cloudinary.config({ 
+  cloud_name: config.cloud_name, 
+  api_key: config.api_key, 
+  api_secret: config.api_secret 
+});
 
 app.get('/', (req, res) => {
     console.log("hello world")

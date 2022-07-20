@@ -1,4 +1,5 @@
 const User = require("../model/User");
+const cloudinary = require('cloudinary');
 
 exports.registerNewUser = async (req, res) => {
     try {
@@ -73,4 +74,36 @@ exports.updateUserDetails = async (req, res) => {
     console.log("update failed")
     res.status(400).json({ err: err });
   }
+};
+
+exports.updateProfilePicture = async (req, res) => {
+  try {
+    console.log(req.file);
+    const filename = `${req.userData.name}_avatar`;
+    console.log(filename)
+
+    const img_uri = await getDataUri(req);
+    await cloudinary.v2.uploader.upload(img_uri.content,
+    { public_id: filename, gravity: "auto", height: 144, width: 144, crop: "fill" }, (err, res) => {
+      console.log(res); 
+    });
+
+    // resize and crop avatar
+    const avatar_size = 144;
+    await cloudinary.image(img_uri.content, {})
+    
+    res.status(200).json({ msg: "Avatar updated."});
+  } catch (err) {
+    console.log("update failed")
+    console.log(err)
+    res.status(400).json({ err: err });
+  }
+};
+
+const DatauriParser = require('datauri/parser');
+const parser = new DatauriParser();
+const path = require('path')
+
+const getDataUri = async req => {
+  return parser.format(path.extname(req.file.originalname).toString(), req.file.buffer);
 };
