@@ -124,8 +124,7 @@ exports.editQuestion = async (req, res) => {
         }
 
         // switch from Quiz to Poll
-        if(req.body.questionType == "Quiz" && question.answerOptions.length == 0) {
-            console.log("Chanign to a quiz!!!!!")
+        if(req.body.questionType == "Quiz" && question.answerOptions.length > 0) {
             const newQuiz = new Question({
                 questionBody: req.body.questionBody,
                 // order is 0 indexed
@@ -138,7 +137,7 @@ exports.editQuestion = async (req, res) => {
             const data = await newQuiz.save();
             return res.status(200).json({ data });
         }
-        else if(req.body.questionType == "Poll" && question.answerOptions.length > 0) {
+        else if(req.body.questionType == "Poll") {
             const newPoll = newQuestion = new PollQuestion({
                 questionBody: req.body.questionBody,
                 // order is 0 indexed
