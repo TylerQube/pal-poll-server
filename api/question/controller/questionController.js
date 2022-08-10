@@ -5,6 +5,41 @@ const PollQuestion = require("../model/PollQuestion");
 
 exports.getDailyQuestion = async (req, res) => {
     try {
+        const question = await this.todayQuestion();
+        
+        if(!question) throw new Error({error : "No daily question found"});
+        res.status(200).json({
+            question: question
+        });
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({
+            err: err
+        });
+    }
+};
+
+exports.todayQuestion = async (withAnswer = false) => {
+    const config = await Config.getSingletonConfig();
+    const startDate = config.startDate;
+    console.log(`config: ${config}`);
+
+    const daysSinceStart = daysSince(startDate);
+    if(daysSinceStart < 0) {
+        throw new Error("PalPoll has not yet started.");
+    }
+
+    // questions are 0-indexed
+    const qIndex = Math.floor(daysSinceStart);
+    return question = await Question.findOne({ orderNum : qIndex }, withAnswer ? {} : { answerNumber: 0 /* Exclude answer number when sending question */});
+}
+
+exports.getQuestionType = async (req, res) => {
+    // return res.status(200).json({
+    //     orderNum: 2,
+    //     qType: 'Poll'
+    // });
+    try {
         const config = await Config.getSingletonConfig();
         const startDate = config.startDate;
         console.log(`config: ${config}`);
@@ -15,25 +50,31 @@ exports.getDailyQuestion = async (req, res) => {
         }
 
         // questions are 0-indexed
-        const qIndex = Math.floor(daysSinceStart) - 1;
+        const qIndex = Math.floor(daysSinceStart);
         const question = await Question.findOne({ orderNum : qIndex }, { answerNumber : 0 /* Exclude answer number when sending question */});
         
         if(!question) throw new Error({error : "No daily question found"});
-        res.status(200).json({
-            question: dailyQuestion
+        console.log("options: " + typeof(question.answerOptions))
+
+        const qType = question.answerOptions != undefined && question.answerOptions != null && question.answerOptions.length > 0 ? 'Quiz' : 'Poll';
+        return res.status(200).json({
+            orderNum: question.orderNum,
+            qType: qType
         });
-    } catch (err) {
+    } catch(err) {
         console.log(err);
         res.status(500).json({
             err: err
         });
     }
-};
+}
 
 const daysSince = (dateStr) => {
-    const today = Date.now();
-    const startDate = new Date(dateStr);
-    console.log(dateStr);
+    const today = new Date();
+    console.log(dateStr.toString().slice(0, 10));
+    const startDate = new Date(dateStr.toString().slice(0, 10));
+    console.log(today.toString());
+    console.log(startDate.toString());
 
     const timeDiff = today - dateStr.getTime();
     const numDays = timeDiff / (1000 * 3600 * 24);
@@ -80,7 +121,7 @@ exports.addQuestion = async (req, res) => {
 
         console.log(req.body);
         // construct array of AnswerOption documents
-        const options = reqToAnswerOptions(req.body.answerOptions);
+        const options = reqToAnswerOptions(req.body.answerOptions, req.body.answerNumber);
         let newQuestion;
 
         const qType = req.body.questionType;
@@ -277,7 +318,7 @@ exports.changeOrder = async (req, res) => {
     }
 }
 
-const reqToAnswerOptions = (rawOptions) => {
+const reqToAnswerOptions = (rawOptions, answerNum) => {
     // construct array of AnswerOption documents
     let options = [];
     for(let i = 0; i < rawOptions.length; i++) {
@@ -285,7 +326,8 @@ const reqToAnswerOptions = (rawOptions) => {
 
         const optionDoc = {
             optionNumber: i,
-            answerBody: rawAnswerOption.answerBody
+            answerBody: rawAnswerOption.answerBody,
+            isCorrect: i == answerNum
         };
         options.push(optionDoc);
     }

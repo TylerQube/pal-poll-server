@@ -10,8 +10,8 @@ exports.answerOptionSchema = mongoose.Schema({
         minlength: 1,
         maxlength: 200,
     },
-    // isCorrectAnswer: { // you can store the correct answer with question id in another model.
-    //   type: Boolean,
-    //   default: false
-    // }
+    isCorrect: {
+      type: Boolean,
+      default: false
+    }
 });

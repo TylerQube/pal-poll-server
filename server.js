@@ -43,6 +43,9 @@ app.use("/questions", questionRoutes);
 const configRoutes = require("./api/palpoll-config/route/configRoutes");
 app.use("/config", configRoutes);
 
+const guessRoutes = require("./api/guess/route/guesses");
+app.use("/guess", guessRoutes);
+
 const port = process.env.PORT || 3030;
 app.listen(port, () => {
   console.log(`App listening at ${port}`);

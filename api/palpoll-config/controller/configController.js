@@ -16,7 +16,10 @@ exports.getConfig = async (req, res) => {
 exports.updateStartDate = async (req, res) => {
     try {
         const config = await Config.getSingletonConfig();
-        config.startDate = req.body.startDate;
+        const adjustedTime = req.body.startDate + "T05:00:00.000+00:00";
+
+        console.log("New start date: " + adjustedTime)
+        config.startDate = adjustedTime;
         const result = await config.save();
         res.status(200).send({
             data: result

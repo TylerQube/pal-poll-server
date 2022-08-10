@@ -14,4 +14,6 @@ router.get("/get/:startIndex/:num", auth.authUser, auth.adminAuth, (req, res) =>
     questionController.getQuestions(req, res, req.params.startIndex, req.params.num); 
 })
 
+router.get("/daily/type", auth.authUser, questionController.getQuestionType);
+
 module.exports = router;
