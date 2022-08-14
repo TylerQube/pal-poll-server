@@ -2,12 +2,22 @@ const Question = require("../model/Question");
 const AnswerOptions = require("../model/AnswerOptions");
 const Config = require("../../palpoll-config/model/Config");
 const PollQuestion = require("../model/PollQuestion");
+const { QuizGuess, PollVote } = require("../../guess/model/UserGuess");
 
 exports.getDailyQuestion = async (req, res) => {
     try {
         const question = await this.todayQuestion();
         
         if(!question) throw new Error({error : "No daily question found"});
+
+        const existingGuess = await QuizGuess.findOne({ userId: req.userData._id, questionId: question._id }) ?? await PollVote.findOne({ userId: req.userData._id, questionId: question._id });
+        console.log("Existing: ");
+        console.log(existingGuess)
+        if(existingGuess != null) {
+            return res.status(400).json({
+                msg: "User has already played today"
+            })
+        }
         res.status(200).json({
             question: question
         });
@@ -24,9 +34,11 @@ exports.todayQuestion = async (withAnswer = false) => {
     const startDate = config.startDate;
     console.log(`config: ${config}`);
 
-    const daysSinceStart = daysSince(startDate);
+    const daysSinceStart = exports.daysSince(startDate);
     if(daysSinceStart < 0) {
-        throw new Error("PalPoll has not yet started.");
+        return res.status(400).json({
+            msg: "PalPoll has not yet started."
+        })
     }
 
     // questions are 0-indexed
@@ -40,13 +52,17 @@ exports.getQuestionType = async (req, res) => {
     //     qType: 'Poll'
     // });
     try {
+        
+
         const config = await Config.getSingletonConfig();
         const startDate = config.startDate;
         console.log(`config: ${config}`);
 
-        const daysSinceStart = daysSince(startDate);
+        const daysSinceStart = exports.daysSince(startDate);
         if(daysSinceStart < 0) {
-            throw new Error("PalPoll has not yet started.");
+            return res.status(400).json({
+                msg: "PalPoll has not yet started."
+            })
         }
 
         // questions are 0-indexed
@@ -55,6 +71,15 @@ exports.getQuestionType = async (req, res) => {
         
         if(!question) throw new Error({error : "No daily question found"});
         console.log("options: " + typeof(question.answerOptions))
+
+        const existingGuess = await QuizGuess.findOne({ userId: req.userData._id, questionId: question._id }) ?? await PollVote.findOne({ userId: req.userData._id, questionId: question._id });
+        console.log("Existing: ");
+        console.log(existingGuess)
+        if(existingGuess != null) {
+            return res.status(400).json({
+                msg: "User has already played today"
+            })
+        }
 
         const qType = question.answerOptions != undefined && question.answerOptions != null && question.answerOptions.length > 0 ? 'Quiz' : 'Poll';
         return res.status(200).json({
@@ -69,7 +94,7 @@ exports.getQuestionType = async (req, res) => {
     }
 }
 
-const daysSince = (dateStr) => {
+exports.daysSince = (dateStr) => {
     const today = new Date();
     console.log(dateStr.toString().slice(0, 10));
     const startDate = new Date(dateStr.toString().slice(0, 10));
@@ -158,14 +183,15 @@ exports.editQuestion = async (req, res) => {
     try {
         console.log(req.body);
         console.log(req.body.questionId)
-        const question = await Question.findOne({ _id : req.body.questionId }) ?? await PollQuestion.findOne({ _id : req.body.questionId });
+        const question = await Question.findOne({ _id : req.body.questionId, "answerOptions.0": { "$exists": true } }) ?? await PollQuestion.findOne({ _id : req.body.questionId });
+        console.log(question)
 
         if (!question) {
             return res.status(401).json({ error: "Question not found" });
         }
 
         // switch from Quiz to Poll
-        if(req.body.questionType == "Quiz" && question.answerOptions.length > 0) {
+        if(req.body.questionType == "Quiz" && (!question.answerOptions || question.answerOptions.length == 0)) {
             const newQuiz = new Question({
                 questionBody: req.body.questionBody,
                 // order is 0 indexed
@@ -178,8 +204,8 @@ exports.editQuestion = async (req, res) => {
             const data = await newQuiz.save();
             return res.status(200).json({ data });
         }
-        else if(req.body.questionType == "Poll") {
-            const newPoll = newQuestion = new PollQuestion({
+        else if(req.body.questionType == "Poll" && question.answerOptions && question.answerOptions.length > 0) {
+            const newPoll = new PollQuestion({
                 questionBody: req.body.questionBody,
                 // order is 0 indexed
                 orderNum: question.orderNum,
@@ -207,7 +233,7 @@ exports.editQuestion = async (req, res) => {
             question.answerNumber = req.body.answerNumber;
         }
 
-        let data = question.save();
+        let data = await question.save();
         return res.status(200).json({ data });
     } catch (err) {
         console.log(err);

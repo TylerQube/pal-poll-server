@@ -46,6 +46,9 @@ app.use("/config", configRoutes);
 const guessRoutes = require("./api/guess/route/guesses");
 app.use("/guess", guessRoutes);
 
+const statsRoutes = require("./api/stats/route/stats");
+app.use("/stats/", statsRoutes);
+
 const port = process.env.PORT || 3030;
 app.listen(port, () => {
   console.log(`App listening at ${port}`);
