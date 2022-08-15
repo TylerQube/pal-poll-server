@@ -9,14 +9,14 @@ exports.submitGuess = async (req, res) => {
         const question = await questionController.todayQuestion(true);
         const qId = question._id;
 
-        // const existingGuess = await QuizGuess.findOne({ userId: req.userData._id, questionId: qId }) ?? await PollVote.findOne({ userId: req.userData._id, questionId: qId });
-        // console.log("Existing: ");
-        // console.log(existingGuess)
-        // if(existingGuess != null) {
-        //     return res.status(400).json({
-        //         msg: "User has already played today"
-        //     })
-        // }
+        const existingGuess = await QuizGuess.findOne({ userId: req.userData._id, questionId: qId }) ?? await PollVote.findOne({ userId: req.userData._id, questionId: qId });
+        console.log("Existing: ");
+        console.log(existingGuess)
+        if(existingGuess != null) {
+            return res.status(400).json({
+                msg: "User has already played today"
+            })
+        }
 
         console.log("NEW GUESS SUBMITTING");
 

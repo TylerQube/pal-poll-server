@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const mongoose = require('mongoose');
 const cloudinary = require('cloudinary');
 const config = require('./config/db');
+const helmet = require('helmet')
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.use(express.json());
 app.use(express.urlencoded({
   extended: true
 }));
+app.use(helmet());
 
 mongoose
   .connect(config.db_url, { useNewUrlParser: true })

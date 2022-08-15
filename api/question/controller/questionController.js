@@ -10,14 +10,14 @@ exports.getDailyQuestion = async (req, res) => {
         
         if(!question) throw new Error({error : "No daily question found"});
 
-        // const existingGuess = await QuizGuess.findOne({ userId: req.userData._id, questionId: question._id }) ?? await PollVote.findOne({ userId: req.userData._id, questionId: question._id });
-        // console.log("Existing: ");
-        // console.log(existingGuess)
-        // if(existingGuess != null) {
-        //     return res.status(400).json({
-        //         msg: "User has already played today"
-        //     })
-        // }
+        const existingGuess = await QuizGuess.findOne({ userId: req.userData._id, questionId: question._id }) ?? await PollVote.findOne({ userId: req.userData._id, questionId: question._id });
+        console.log("Existing: ");
+        console.log(existingGuess)
+        if(existingGuess != null) {
+            return res.status(400).json({
+                msg: "User has already played today"
+            })
+        }
         res.status(200).json({
             question: question
         });
@@ -72,14 +72,14 @@ exports.getQuestionType = async (req, res) => {
         if(!question) throw new Error({error : "No daily question found"});
         console.log("options: " + typeof(question.answerOptions))
 
-        // const existingGuess = await QuizGuess.findOne({ userId: req.userData._id, questionId: question._id }) ?? await PollVote.findOne({ userId: req.userData._id, questionId: question._id });
-        // console.log("Existing: ");
-        // console.log(existingGuess)
-        // if(existingGuess != null) {
-        //     return res.status(400).json({
-        //         msg: "User has already played today"
-        //     })
-        // }
+        const existingGuess = await QuizGuess.findOne({ userId: req.userData._id, questionId: question._id }) ?? await PollVote.findOne({ userId: req.userData._id, questionId: question._id });
+        console.log("Existing: ");
+        console.log(existingGuess)
+        if(existingGuess != null) {
+            return res.status(400).json({
+                msg: "User has already played today"
+            })
+        }
 
         const qType = question.answerOptions != undefined && question.answerOptions != null && question.answerOptions.length > 0 ? 'Quiz' : 'Poll';
         return res.status(200).json({
