@@ -117,8 +117,6 @@ exports.getQuestions = async (req, res, startIndex, num) => {
 
         let qArchive = [];
         for(const i in questions) {
-            console.log("Order" + questions[i].orderNum);
-            console.log("Days: " + daysSinceStart)
             const archived = questions[i].orderNum <= daysSinceStart;
             qArchive.push({
                 question: questions[i],
@@ -301,8 +299,24 @@ exports.changeOrder = async (req, res) => {
         const questionId = req.body.questionId;
         const newIndex = req.body.newOrderNum;
 
+        console.log(questionId);
+        console.log(newIndex)
+
         let question = await Question.findOne({ _id: questionId });
         if(question == null || question.answerOptions.length == 0) question = await PollQuestion.findOne({ _id: questionId })
+
+        if(!question) return res.status(400).json({ msg : "Question not found"})
+
+        const config = await Config.getSingletonConfig();
+        const startDate = config.startDate;
+        console.log(`config: ${config}`);
+
+        const daysSinceStart = Math.floor(exports.daysSince(startDate));
+        if(question.orderNum <= daysSinceStart || req.body.newOrderNum <= daysSinceStart) {
+            return res.status(400).json({
+                msg: "Cannot reorder archived questions"
+            });
+        }
 
         let toMoveQs;
         let queryConditions = {
