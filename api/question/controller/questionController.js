@@ -10,14 +10,14 @@ exports.getDailyQuestion = async (req, res) => {
         
         if(!question) throw new Error({error : "No daily question found"});
 
-        const existingGuess = await QuizGuess.findOne({ userId: req.userData._id, questionId: question._id }) ?? await PollVote.findOne({ userId: req.userData._id, questionId: question._id });
-        console.log("Existing: ");
-        console.log(existingGuess)
-        if(existingGuess != null) {
-            return res.status(400).json({
-                msg: "User has already played today"
-            })
-        }
+        // const existingGuess = await QuizGuess.findOne({ userId: req.userData._id, questionId: question._id }) ?? await PollVote.findOne({ userId: req.userData._id, questionId: question._id });
+        // console.log("Existing: ");
+        // console.log(existingGuess)
+        // if(existingGuess != null) {
+        //     return res.status(400).json({
+        //         msg: "User has already played today"
+        //     })
+        // }
         res.status(200).json({
             question: question
         });
@@ -72,14 +72,14 @@ exports.getQuestionType = async (req, res) => {
         if(!question) throw new Error({error : "No daily question found"});
         console.log("options: " + typeof(question.answerOptions))
 
-        const existingGuess = await QuizGuess.findOne({ userId: req.userData._id, questionId: question._id }) ?? await PollVote.findOne({ userId: req.userData._id, questionId: question._id });
-        console.log("Existing: ");
-        console.log(existingGuess)
-        if(existingGuess != null) {
-            return res.status(400).json({
-                msg: "User has already played today"
-            })
-        }
+        // const existingGuess = await QuizGuess.findOne({ userId: req.userData._id, questionId: question._id }) ?? await PollVote.findOne({ userId: req.userData._id, questionId: question._id });
+        // console.log("Existing: ");
+        // console.log(existingGuess)
+        // if(existingGuess != null) {
+        //     return res.status(400).json({
+        //         msg: "User has already played today"
+        //     })
+        // }
 
         const qType = question.answerOptions != undefined && question.answerOptions != null && question.answerOptions.length > 0 ? 'Quiz' : 'Poll';
         return res.status(200).json({
@@ -96,14 +96,10 @@ exports.getQuestionType = async (req, res) => {
 
 exports.daysSince = (dateStr) => {
     const today = new Date();
-    console.log(dateStr.toString().slice(0, 10));
     const startDate = new Date(dateStr.toString().slice(0, 10));
-    console.log(today.toString());
-    console.log(startDate.toString());
 
     const timeDiff = today - dateStr.getTime();
     const numDays = timeDiff / (1000 * 3600 * 24);
-    console.log(numDays)
     return numDays >= 0 ? numDays : -1;
 }
 
@@ -113,8 +109,26 @@ exports.getQuestions = async (req, res, startIndex, num) => {
             orderNum: { $gt: startIndex-1, $lt: startIndex+num }
         }).sort({orderNum: 'ascending'});
 
+        const config = await Config.getSingletonConfig();
+        const startDate = config.startDate;
+        console.log(`config: ${config}`);
+
+        const daysSinceStart = Math.floor(exports.daysSince(startDate));
+
+        let qArchive = [];
+        for(const i in questions) {
+            console.log("Order" + questions[i].orderNum);
+            console.log("Days: " + daysSinceStart)
+            const archived = questions[i].orderNum <= daysSinceStart;
+            qArchive.push({
+                question: questions[i],
+                archived: archived
+            })
+        }
+
         res.status(200).json({
-            questions
+            questionList: qArchive,
+            daysSince: daysSinceStart
         });
     } catch (err) {
         console.log(err);

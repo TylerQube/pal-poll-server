@@ -13,6 +13,9 @@ router.post("/updatepfp", auth.authUser, upload.single('avatar'), userController
 
 router.get("/avatar", userController.getUserAvatar);
 
+router.get("/userAuth", auth.authUser, (req, res) => { res.status(200).json({ message : "User authenticated" }) });
+
+
 router.get("/adminAuth", auth.authUser, auth.adminAuth, (req, res) => { res.status(200).json({ message : "Admin authenticated" }) });
 
 module.exports = router;

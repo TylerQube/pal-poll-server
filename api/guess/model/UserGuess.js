@@ -23,8 +23,30 @@ const quizGuessSchema = mongoose.Schema({
   }
 });
 
+const quizFailSchema = mongoose.Schema({
+  userId: {
+    type: String,
+    required: [true, "Specify a user"]
+  },
+  questionId: {
+    type: String,
+    required: [true, "Specify a question ID"]
+  },
+  timeElapsed: {
+    type: Number,
+    required: [true, "Include time spent guessing"]
+  },
+  isCorrect: {
+    type: Boolean,
+    required: [true, "Include whether the guess is correct"]
+  }
+});
+
 const QuizGuess = mongoose.model("UserGuess", quizGuessSchema, "quizGuesses");
 exports.QuizGuess = QuizGuess;
+
+const QuizFail = mongoose.model("QuizFail", quizFailSchema, "quizGuesses");
+exports.QuizFail = QuizFail;
 
 const pollVoteSchema = mongoose.Schema({
   userId: {

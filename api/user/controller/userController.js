@@ -52,6 +52,7 @@ exports.loginUser = async (req, res) => {
     const token = await user.generateAuthToken();
     res.status(201).json({ user, token });
   } catch (err) {
+    console.log(err);
     console.log("login failed")
     res.status(400).json({ err: err });
   }

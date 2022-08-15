@@ -30,6 +30,11 @@ exports.getStats = async (req, res) => {
         // console.log("Index " + relativeIndex + " here is the question: ")
         // console.log(question)
         console.log(question);
+        if(!question) {
+            return res.status(404).json({
+                err: "Question not found"
+            })
+        }
 
         const isQuiz = question.answerOptions && question.answerOptions.length > 0;
         let attempts;

@@ -1,4 +1,4 @@
-const { QuizGuess, PollVote } = require('../model/UserGuess');
+const { QuizGuess, PollVote, QuizFail } = require('../model/UserGuess');
 const User = require('../../user/model/User');
 const questionController = require('../../question/controller/questionController')
 
@@ -9,25 +9,45 @@ exports.submitGuess = async (req, res) => {
         const question = await questionController.todayQuestion(true);
         const qId = question._id;
 
+        // const existingGuess = await QuizGuess.findOne({ userId: req.userData._id, questionId: qId }) ?? await PollVote.findOne({ userId: req.userData._id, questionId: qId });
+        // console.log("Existing: ");
+        // console.log(existingGuess)
+        // if(existingGuess != null) {
+        //     return res.status(400).json({
+        //         msg: "User has already played today"
+        //     })
+        // }
+
         console.log("NEW GUESS SUBMITTING");
-        console.log(`Question ID: ${qId}`)
-        console.log(question)
 
         const isQuiz = question.answerOptions && question.answerOptions.length > 0;
         if(isQuiz) {
+            console.log("It is a quiz")
+            console.log(req.body)
+            if(req.body.failed) {
+                const quizFail = new QuizFail({
+                    userId: userId,
+                    questionId: qId,
+                    isCorrect: false,
+                    timeElapsed: req.body.guessTime
+                });
+    
+                const data = await quizFail.save();
+                return res.status(200).json({ data : data, correctIndex : question.answerNumber });
+            }
+
             let userOption;
             let optionIndex = -1;
             for(let i = 0; i < question.answerOptions.length; i++) {
                 const option = question.answerOptions[i];
-                console.log(`${req.body.guess} vs ${option.answerBody}`)
                 if(option.answerBody == req.body.guess) {
                     optionIndex = i;
                     userOption = option;
                 }
             }
 
-            console.log(question)
-            console.log(`Correct Index: ${question.answerNumber}, Guess: ${optionIndex}`);
+            // console.log(question)
+            // console.log(`Correct Index: ${question.answerNumber}, Guess: ${optionIndex}`);
 
             if(!userOption || optionIndex == -1) throw new Error('No corresponding answer option found.');
 
