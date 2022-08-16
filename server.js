@@ -17,6 +17,8 @@ app.use(express.urlencoded({
 }));
 app.use(helmet());
 
+app.use(express.static('public'))
+
 mongoose
   .connect(config.db_url, { useNewUrlParser: true })
   .then(() => {
@@ -51,6 +53,9 @@ app.use("/guess", guessRoutes);
 
 const statsRoutes = require("./api/stats/route/stats");
 app.use("/stats/", statsRoutes);
+
+const passwordRoutes = require("./api/password-reset/route/passwordReset");
+app.use("/password-reset/", passwordRoutes);
 
 const port = process.env.PORT || 3030;
 app.listen(port, () => {
