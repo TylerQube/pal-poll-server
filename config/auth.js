@@ -2,7 +2,6 @@ const jwt = require("jsonwebtoken");
 exports.authUser = (req, res, next) => {
   try {
     const token = req.headers.authorization.replace("Bearer ", "");
-    console.log("Secret: " + process.env.JWT_SECRET)
     const decoded = jwt.verify(token, process.env.JWT_SECRET ?? "secret");
     // save decoded user data to request for later use 
     req.userData = decoded;
