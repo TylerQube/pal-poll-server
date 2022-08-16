@@ -13,12 +13,13 @@ exports.registerNewUser = async (req, res) => {
         });
       }
 
+      console.log(req.body)
       const avatarUrl = await axios.get(`https://ui-avatars.com/api/?size=144&name=${req.body.displayName[0].toUpperCase()}&background=random`)
 
       const filename = `${req.body.username}_avatar`;
 
       let cloudinaryUrl;
-      await cloudinary.v2.uploader.upload(avatarUrl,
+      await cloudinary.v2.uploader.upload(avatarUrl.config.url,
       { public_id: filename, gravity: "auto", height: 144, width: 144, crop: "fill" }, (err, res) => {
         console.log(res); 
         cloudinaryUrl = res.secure_url
