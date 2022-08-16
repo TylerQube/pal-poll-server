@@ -36,7 +36,7 @@ exports.sendResetEmail = async (req, res) => {
             token: jwtToken
         }).save();
 
-        const resetLink = `https://${process.env.FRONT_END_URL}/password-reset/${user._id}`;
+        const resetLink = `https://${process.env.FRONT_END_URL}/password-reset/${jwtToken}`;
 
         await sendEmail(user.email, user.displayName, resetLink);
         return res.status(200);
@@ -79,5 +79,45 @@ const sendEmail = async (email, displayName, url) => {
         }]
     };
     
-    await transporter.sendMail(mailOptions)
+    return await transporter.sendMail(mailOptions)
+};
+
+exports.resetPassword = async (req, res) => {
+    if(!req.body.token || !req.body.newPassword) return res.status(400).send("Invalid request body");
+
+    const token = req.body.token;
+    const newPassword = req.body.newPassword;
+
+    // verify password length
+    if(newPassword.length < 8) return res.status(400).send("Password must be at least 8 characters in length");
+
+    // verify token
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET ?? "secret");
+    } catch(err) {
+        console.log(err)
+        return res.status(401).send("Invalid token")
+    }
+
+    // verify user has requested password reset
+    const resetToken = await ResetToken.findOne({ token: token });
+
+    if(!resetToken) {
+        return res.status(401).send("Password reset unauthorized");
+    }
+
+    // get user, verify exists
+    const userId = resetToken.userId;
+    const user = await User.findOne({ _id: userId });
+
+    if(!resetToken) {
+        return res.status(400).send("User not found");
+    }
+
+    // set password
+    user.password = newPassword;
+    await user.save();
+    await resetToken.delete();
+
+    return res.status(200).send("Password reset");
 };
