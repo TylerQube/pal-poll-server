@@ -36,10 +36,10 @@ exports.sendResetEmail = async (req, res) => {
             token: jwtToken
         }).save();
 
-        const resetLink = `https://${process.env.FRONT_END_URL}/password-reset/${jwtToken}`;
+        const resetLink = `${process.env.FRONT_END_URL}/password-reset/${jwtToken}`;
 
         await sendEmail(user.email, user.displayName, resetLink);
-        return res.status(200);
+        return res.status(200).send("Sent password reset email");
 
     } catch (err) {
         console.log(err)
@@ -51,7 +51,7 @@ exports.sendResetEmail = async (req, res) => {
 
 const nodemailer = require('nodemailer');
 
-const sendEmail = async (email, displayName, url) => {
+const sendEmail = async (email, displayName, url, res) => {
     var transporter = nodemailer.createTransport({
         service: process.env.MAIL_SERVICE,
         auth: {
@@ -79,7 +79,7 @@ const sendEmail = async (email, displayName, url) => {
         }]
     };
     
-    return await transporter.sendMail(mailOptions)
+    return await transporter.sendMail( mailOptions);
 };
 
 exports.resetPassword = async (req, res) => {
@@ -121,3 +121,23 @@ exports.resetPassword = async (req, res) => {
 
     return res.status(200).send("Password reset");
 };
+
+exports.verifyResetToken = async (req, res) => {
+    if(!req.params.token) return res.status(400).send("No token provided for verification");
+
+    const token = req.params.token;
+
+    const resetToken = await ResetToken.findOne({ token: token });
+    if(!resetToken) {
+        return res.status(400).send("User not found");
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET ?? "secret");
+    } catch(err) {
+        console.log(err)
+        return res.status(401).send("Invalid token")
+    }
+
+    return res.status(200).send("Valid reset token");
+}
