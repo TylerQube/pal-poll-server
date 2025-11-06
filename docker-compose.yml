@@ -1,11 +1,21 @@
 services:
   api:
-    build: .
+    image: ghcr.io/tylerqube/palapi:latest
+    env_file:
+      - .env
     ports:
       - "3030:3030"
     environment:
       - NODE_ENV=production
       - DB_URL=mongodb://mongo:27017/palpoll
+    depends_on:
+      - mongo
+
+  client:
+    image: ghcr.io/tylerqube/palpoll:latest
+    ports:
+      - "8080:80"
+
   mongo:
     image: mongo:6
     container_name: palpoll-db
